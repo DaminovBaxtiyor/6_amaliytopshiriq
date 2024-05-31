@@ -1,130 +1,131 @@
-// import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:intl/intl.dart';
+import 'package:sqflite/sqlite_api.dart';
+import 'package:todoapp/add_task_screen.dart';
+import 'package:todoapp/database_helper.dart';
+import 'package:todoapp/task.dart';
 
-void main() {
-  runApp(const MyApp());
-}
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class TaskListScreen extends StatefulWidget {
+
+  const TaskListScreen();
+
+
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<TaskListScreen> createState() => _TaskListScreenState();
 }
 
-class _MyAppState extends State<MyApp> {
-  TextEditingController controller1 = TextEditingController();
-  TextEditingController controller2 = TextEditingController();
+class _TaskListScreenState extends State<TaskListScreen> {
+  late Future<List<Task>> _taskList;
+  final DateFormat _dateFormat = DateFormat("MMM dd, yyyy");
 
-  int currentIndex = 0;
 
+  Widget _buildItem(Task task) {
+    return Container(
+      color: Colors.amber,
+      child: ListTile(
+        title: Text(task.title!,
+            style: TextStyle(
+            decoration: task.status == 0
+                  ? TextDecoration.none
+                  : TextDecoration.lineThrough)),
+        subtitle: Text(_dateFormat.format(task.date),
+            style: TextStyle(
+                decoration: task.status == 0
+                    ? TextDecoration.none
+                    : TextDecoration.lineThrough)),
+        trailing: Checkbox(
+          value: task.status == 0 ?false :true,
+          activeColor: Theme.of(context).primaryColor,
+          onChanged: (bool? value) {
+            if(value != null) task.status = value ? 1: 0;
+            DatabaseHelper.instance.updateTask(task);
+            _updateTaskList();
+          },
+        ),
+      ),
+    );
+  }
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _updateTaskList();
+  }
+
+  _updateTaskList(){
+    setState(() {
+      _taskList = DatabaseHelper.instance.getTaskList();
+
+    });
+  }
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          appBar: AppBar(
-            title: Text('Bosh sahifa', style: TextStyle(color: Colors.lightBlueAccent),),
-            backgroundColor: Color(0xFF1B1725 ),
-            centerTitle: true,
-          ),
-          body:
-          // screens[currentIndex],
-
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text("Daminov Baxtiyor"),
-              CircleAvatar(
-                backgroundImage: NetworkImage(
-                    "https://avatar.iran.liara.run/public/25"),
-                radius: 50,
-              ),
-
-              SizedBox(height: 15),
-              TextField(
-                controller: controller1,
-                decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(color: Colors.green)
-                    ),
-                    enabledBorder:OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.blue)
-                    )
-                ),
-              ),
-              SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    String text = controller1.text;
-                    controller2.text = "Baxtiyor sizga sizga salom yo'llaydi $text";
-                  });
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: ()=> Navigator.push(
+            context, MaterialPageRoute(builder: (_)=>AddTaskScreen(updateTaskList: _updateTaskList))),
+        child: Icon(Icons.add),
+      ),
+      body: Container(
+        child:
+        FutureBuilder(
+          future: _taskList,
+          builder: (context, AsyncSnapshot<List<Task>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Center(child: Text('No tasks found.'));
+            } else {
+              return ListView.builder(
+                itemCount: snapshot.data!.length + 1,
+                itemBuilder: (BuildContext context, int index) {
+                  if (index == 0) {
+                    return Container(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        "My tasks",
+                        style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  } else {
+                    return _buildItem(snapshot.data![index - 1]);
+                  }
                 },
-                child: Text("Yuborish"),
-
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: controller2,
-                decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(color: Colors.green)
-                    ),
-                    enabledBorder:OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.blue)
-                    )
-                ),
-              ),
-            ],
-          ),
-
-          bottomNavigationBar:
-          Theme(
-            data: ThemeData(
-              canvasColor: Color(0x1B1725),
-            ),
-            child: BottomNavigationBar(
-              backgroundColor: Color(0xFF1B1725),
-              fixedColor: Colors.white,
-              showSelectedLabels: true,
-              showUnselectedLabels: false,
-              iconSize: 27,
-
-              currentIndex: currentIndex,
-              onTap: (index){
-                setState(() {
-                  currentIndex = index;
-                });
-              },
-              type:
-              BottomNavigationBarType.fixed,
-              unselectedItemColor: Colors.lightBlueAccent,
-              items: [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home),
-
-                  label: "Home",
-                ),
-                BottomNavigationBarItem(
-                  // title : Text("Sevimlilar"),
-                  icon: Icon(Icons.wallet),
-                  label: "Wallet",
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.chat),
-                  label: "Chat",
-                ),
-                ],
-            ),
-          ),
+              );
+            }
+          },
         )
+
+
+
+
+        // FutureBuilder(
+        //   future: _taskList,
+        //   builder: (context, AsyncSnapshot snapshot){
+        //     return ListView.builder(
+        //
+        //         itemCount: snapshot.data.length + 1,
+        //         itemBuilder: (BuildContext context, int index) {
+        //           if (index == 0) {
+        //             return Container(
+        //               child: Text(
+        //                 "My tasks", style: TextStyle(fontSize: 40.0, fontWeight: FontWeight.bold), ),
+        //             );
+        //
+        //           }
+        //           else
+        //             return _buildItem(snapshot.data[index - 1]);
+        //         });
+        //   },
+        //
+        // ),
+      ),
+
     );
   }
 }
